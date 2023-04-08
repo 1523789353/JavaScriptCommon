@@ -78,14 +78,14 @@ function uglify(code) {
     // 丑化代码
     let uglyCodeBase = code.replaceAll(wordsMatcher, target => words2index[target].toString(36));
     // 经过unicode转义的丑化代码, 用base64的话不仅要实现编码, 还要把解码函数嵌入到codeRunner里(懒)
-    let EscapedUglyCodeBase = unicodeEscape(uglyCodeBase);
+    let escapedUglyCodeBase = unicodeEscape(uglyCodeBase);
 
     // 单词分隔符
     let wordSplitor = '\u202e';
     // 解码器
     let codeRunner = `(a,b)=>void (decodeURIComponent(a).replaceAll(/\\w+/g,i=>b[parseInt(i,36)]))`;
     // 生成丑化代码
-    let uglyCode = `(${codeRunner})('${EscapedUglyCodeBase}','${wordsMessUp.join(wordSplitor)}'.split('${wordSplitor}'));`;
+    let uglyCode = `(${codeRunner})('${escapedUglyCodeBase}','${wordsMessUp.join(wordSplitor)}'.split('${wordSplitor}'));`;
 
     return uglyCode;
 }
