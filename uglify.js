@@ -58,10 +58,10 @@ class Node {
         for (let child of this.children) {
             // 分配index
             let subIndexArray = indexArray.splice(0, child.childrenCount + 1);
-            // 父节点的index取最小值
-            let minIndex = Math.min(...subIndexArray);
-            subIndexArray.splice(subIndexArray.indexOf(minIndex), 1);
-            child.index = minIndex;
+            // 父节点的index取最大值
+            let maxIndex = Math.max(...subIndexArray);
+            subIndexArray.splice(subIndexArray.indexOf(maxIndex), 1);
+            child.index = maxIndex;
             // 子节点的index取剩下的值
             child.allocate(subIndexArray);
         }
@@ -116,9 +116,23 @@ function unicodeEscape(string) {
     let specailChars = ['\t', '\r', '\n', '\v', '\f', '\b', '\0', '\'', '\"', '\\'];
     let charArray = Array.from(string);
     let escapedCharArray = charArray.map(char => {
-        if (char.charCodeAt(0) < 0xFF && !specailChars.includes(char)) // 于 Latin1 范围内, 且不是特殊字符的不转义
-            return char;
+        // 于 Latin1 范围内, 且不是特殊字符的不转义
+        if (char.charCodeAt(0) < 0xFF && !specailChars.includes(char)) return char;
         return '\\u' + char.charCodeAt(0).toString(16).padStart(4, '0');
+    })
+    return escapedCharArray.join('');
+}
+
+function escape(string) {
+    let specailChars = {
+        '\r': '\\r',
+        '\n': '\\n',
+        '\'': '\\\''
+    };
+    let charArray = Array.from(string);
+    let escapedCharArray = charArray.map(char => {
+        if (!(char in specailChars)) return char;
+        return specailChars[char];
     })
     return escapedCharArray.join('');
 }
@@ -143,12 +157,10 @@ function uglify(code) {
     // 单词索引 { [word]: index, ... }
     let words2index = Object.assign(...wordsShuffle.map((item, index) => ({ [item]: index })));
 
-    // 单词正则
-    let wordsMatcher = new RegExp(words.join('|'), 'g');
     // 丑化代码
-    let uglyCodeBase = code.replaceAll(wordsMatcher, target => words2index[target].toString(36));
+    let uglyCodeBase = code.replaceAll(/\w+/g, target => words2index[target].toString(36));
     // 经过unicode转义的丑化代码, 用base64的话不仅要实现编码, 还要把解码函数嵌入到codeRunner里(懒)
-    let escapedUglyCodeBase = unicodeEscape(uglyCodeBase);
+    let escapedUglyCodeBase = escape(uglyCodeBase);
 
     // 单词分隔符
     let wordSplitor = '|'; // \u202e
