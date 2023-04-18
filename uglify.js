@@ -14,7 +14,7 @@ function* range(...opts) {
 }
 
 /**
- * 数组去重方法
+ * 数组去重
  * @param {Array<T>} array 需要去重的数组
  * @returns {Array<T>} 去重后的数组
  */
@@ -23,13 +23,14 @@ function union(array) {
 }
 
 /**
- * 数组打乱方法
+ * 打乱数组
  * @param {Array<T>} array 需要打乱的数组
- * @param {number} level 打乱的程度
+ * @param {number} level 打乱等级, 数值越大, 打乱程度越大
  * @returns {Array<T>} 打乱后的数组
  */
-function messUp(array, level = 1) {
-    for (let i of range(0, array.length * level)) {
+function shuffleArray(array, level = 1) {
+    if (array.length == 1 || level == 0) return array;
+    for (let i = 0; i < array.length * level; i++) {
         let index = i % array.length;
         let randomIndex = parseInt(Math.random() * (array.length - 1));
         if (randomIndex == index)
@@ -37,6 +38,73 @@ function messUp(array, level = 1) {
         [array[index], array[randomIndex]] = [array[randomIndex], array[index]];
     }
     return array
+}
+
+class Node {
+    word = null;
+    children = [];
+    index = null;
+    get childrenCount() {
+        let count = 0;
+        for (let child of this.children) {
+            count += 1 + child.childrenCount;
+        }
+        return count;
+    }
+    constructor(word) {
+        this.word = word;
+    }
+    allocate(indexArray) {
+        for (let child of this.children) {
+            // 分配index
+            let subIndexArray = indexArray.splice(0, child.childrenCount + 1);
+            // 父节点的index取最小值
+            let minIndex = Math.min(...subIndexArray);
+            subIndexArray.splice(subIndexArray.indexOf(minIndex), 1);
+            child.index = minIndex;
+            // 子节点的index取剩下的值
+            child.allocate(subIndexArray);
+        }
+    }
+}
+
+class WordTree {
+    root = new Node('');
+    constructor(...words) {
+        for (let word of words) {
+            this.add(word);
+        }
+    }
+    add(word) {
+        function add(node, word) {
+            if (word == node.word) return;
+            for (let child of node.children) {
+                if (word.includes(child.word)) {
+                    return add(child, word);
+                }
+            }
+            let newNode = new Node(word);
+            node.children.push(newNode);
+        }
+        add(this.root, word);
+    }
+    shuffle(level) {
+        let indexArray = new Array(this.root.childrenCount).fill(0).map((_, i) => i);
+        indexArray = shuffleArray(indexArray, level)
+        this.root.allocate(indexArray);
+    }
+    toArray() {
+        let nodes = [];
+        function toArray(node) {
+            nodes.push(node);
+            for (let child of node.children) {
+                toArray(child);
+            }
+        }
+        toArray(this.root);
+        nodes.shift();
+        return nodes.sort((a, b) => a.index - b.index).map(n => n.word);
+    }
 }
 
 /**
@@ -69,9 +137,11 @@ function uglify(code) {
     // 消除重复单词
     let words = union(allWords);
     // 打乱单词顺序
-    let wordsMessUp = messUp(words, 3);
+    let wordsTree = new WordTree(...words);
+    wordsTree.shuffle(3);
+    let wordsShuffle = wordsTree.toArray();
     // 单词索引 { [word]: index, ... }
-    let words2index = Object.assign(...wordsMessUp.map((item, index) => ({ [item]: index })));
+    let words2index = Object.assign(...wordsShuffle.map((item, index) => ({ [item]: index })));
 
     // 单词正则
     let wordsMatcher = new RegExp(words.join('|'), 'g');
@@ -81,11 +151,11 @@ function uglify(code) {
     let escapedUglyCodeBase = unicodeEscape(uglyCodeBase);
 
     // 单词分隔符
-    let wordSplitor = '\u202e';
+    let wordSplitor = '|'; // \u202e
     // 解码器
-    let codeRunner = `(a,b)=>void (decodeURIComponent(a).replaceAll(/\\w+/g,i=>b[parseInt(i,36)]))`;
+    let codeRunner = `(a,b)=>void setTimeout(a.replaceAll(/\\w+/g,i=>b[parseInt(i,36)]))`;
     // 生成丑化代码
-    let uglyCode = `(${codeRunner})('${escapedUglyCodeBase}','${wordsMessUp.join(wordSplitor)}'.split('${wordSplitor}'));`;
+    let uglyCode = `(${codeRunner})('${escapedUglyCodeBase}','${wordsShuffle.join(wordSplitor)}'.split('${wordSplitor}'));`;
 
     return uglyCode;
 }
